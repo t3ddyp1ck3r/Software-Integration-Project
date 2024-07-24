@@ -1,4 +1,3 @@
-// src/controllers/profile.controller.ts
 import { Request, Response } from 'express';
 import { pool } from '../boot/database/db_connect';
 import { logger } from '../middleware/winston';
