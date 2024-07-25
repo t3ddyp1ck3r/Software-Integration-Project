@@ -1,65 +1,24 @@
-const logger = require("../middleware/winston");
-const statusCodes = require("../constants/statusCodes");
-const commentModel = require("../models/commentModel");
+import { Request, Response } from 'express';
+import CommentModel from '../models/commentModel';
 
-const addComment = async (req, res) => {
+export const getCommentsById = async (req: Request, res: Response) => {
   const { movie_id } = req.params;
-  const { rating, username, comment, title } = req.body;
-
-  let movieId = parseInt(movie_id);
-
-  if (
-    !movie_id ||
-    isNaN(movieId) ||
-    !rating ||
-    !username ||
-    !comment ||
-    !title
-  ) {
-    res.status(statusCodes.badRequest).json({ message: "Missing parameters" });
-  } else {
-    try {
-      const commentObj = new commentModel({
-        movie_id: movieId,
-        rating,
-        username,
-        comment,
-        title,
-      });
-
-      await commentObj.save();
-
-      res.status(statusCodes.success).json({ message: "Comment added" });
-    } catch (error) {
-      logger.error(error.stack);
-      res
-        .status(statusCodes.queryError)
-        .json({ error: "Exception occurred while adding comment" });
-    }
+  try {
+    const comments = await CommentModel.find({ movie_id });
+    res.status(200).json(comments);
+  } catch (error) {
+    res.status(500).json({ error: 'Error fetching comments' });
   }
 };
 
-const getCommentsById = async (req, res) => {
+export const addComment = async (req: Request, res: Response) => {
   const { movie_id } = req.params;
-
-  let movieId = parseInt(movie_id);
-
-  if (!movie_id || isNaN(movieId)) {
-    res.status(statusCodes.badRequest).json({ message: "movie id missing" });
-  } else {
-    try {
-      const comments = await commentModel.find({ movie_id: movieId });
-      res.status(statusCodes.success).json({ comments });
-    } catch (error) {
-      logger.error(error.stack);
-      res
-        .status(statusCodes.queryError)
-        .json({ error: "Exception occured while fetching comments" });
-    }
+  const { content, author } = req.body;
+  try {
+    const newComment = new CommentModel({ movie_id, content, author });
+    await newComment.save();
+    res.status(201).json(newComment);
+  } catch (error) {
+    res.status(500).json({ error: 'Error adding comment' });
   }
-};
-
-module.exports = {
-  getCommentsById,
-  addComment,
 };

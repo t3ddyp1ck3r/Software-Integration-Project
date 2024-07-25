@@ -1,27 +1,15 @@
-const mongoose = require("mongoose");
+import { Schema, model } from 'mongoose';
 
-const ratingSchema = new mongoose.Schema(
-  {
-    movie_id: {
-      type: Number,
-      required: [true, "movie is required"],
-    },
-    email: {
-      type: String,
-      required: [true, "Email is required"],
-    },
-    rating: {
-      type: Number,
-      min: 0,
-      max: 5,
-      required: [true, "rating is required"],
-    },
-  },
-  {
-    timestamps: {
-      createdAt: "created_at",
-    },
-  }
-);
+interface IRating {
+  rating: number;
+  movieId: string;
+}
 
-module.exports = mongoose.model("Rating", ratingSchema);
+const ratingSchema = new Schema<IRating>({
+  rating: { type: Number, required: true },
+  movieId: { type: String, required: true },
+});
+
+const RatingModel = model<IRating>('Rating', ratingSchema);
+
+export default RatingModel;

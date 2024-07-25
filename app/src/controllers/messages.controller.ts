@@ -1,86 +1,65 @@
-const messageModel = require("../models/messageModel");
+import { Request, Response } from 'express';
+import MessageModel from '../models/messageModel';
 
-const getMessages = async (req, res) => {
-  const messages = await messageModel.find({});
-  return res.status(200).json(messages);
+export const addMessage = async (req: Request, res: Response) => {
+  const { content, recipientId } = req.body;
+  try {
+    const newMessage = new MessageModel({ content, recipientId });
+    await newMessage.save();
+    res.status(201).json(newMessage);
+  } catch (error) {
+    res.status(500).json({ error: 'Error adding message' });
+  }
 };
 
-const getMessageById = async (req, res) => {
+export const getMessages = async (req: Request, res: Response) => {
+  try {
+    const messages = await MessageModel.find();
+    res.status(200).json(messages);
+  } catch (error) {
+    res.status(500).json({ error: 'Error fetching messages' });
+  }
+};
+
+export const editMessage = async (req: Request, res: Response) => {
   const { messageId } = req.params;
-
+  const { content } = req.body;
   try {
-    const message = await messageModel.findById(messageId);
-    return res.status(200).json(message);
+    const updatedMessage = await MessageModel.findByIdAndUpdate(messageId, { content }, { new: true });
+    if (!updatedMessage) {
+      res.status(404).json({ error: 'Message not found' });
+    } else {
+      res.status(200).json(updatedMessage);
+    }
   } catch (error) {
-    console.log("Error while getting message from DB", error.message);
-    return res.status(500).json({ error: "Error while getting message" });
+    res.status(500).json({ error: 'Error updating message' });
   }
 };
 
-const addMessage = async (req, res) => {
-  const { message } = req.body;
-
-  if (!message || !message.name) {
-    return res.status(400).json({ error: "missing information" });
-  }
-
-  if (!req.session.user) {
-    return res.status(500).json({ error: "You are not authenticated" });
-  }
-
-  message.user = req.session.user._id;
-
-  try {
-    const messageObj = new messageModel(message);
-    await messageObj.save();
-    return res.status(200).json(messageObj);
-  } catch (error) {
-    console.log("Error while adding message to DB", error.message);
-    return res.status(500).json({ error: "Failed to add message" });
-  }
-};
-
-const editMessage = async (req, res) => {
-  const { name } = req.body;
+export const deleteMessage = async (req: Request, res: Response) => {
   const { messageId } = req.params;
-
-  if (!name || !messageId)
-    return res.status(400).json({ error: "missing information" });
   try {
-    const message = await messageModel.findByIdAndUpdate(
-      messageId,
-      {
-        name,
-      },
-      {
-        new: true,
-      }
-    );
-    return res.status(200).json(message);
+    const deletedMessage = await MessageModel.findByIdAndDelete(messageId);
+    if (!deletedMessage) {
+      res.status(404).json({ error: 'Message not found' });
+    } else {
+      res.status(200).json({ message: 'Message deleted' });
+    }
   } catch (error) {
-    console.log("Error while updating message", error.message);
-    return res.status(500).json({ error: "Failed to update message" });
+    res.status(500).json({ error: 'Error deleting message' });
   }
 };
 
-const deleteMessage = async (req, res) => {
+export const getMessageById = async (req: Request, res: Response) => {
   const { messageId } = req.params;
-
-  if (!messageId) return res.status(400).json({ error: "missing information" });
-
   try {
-    await messageModel.findByIdAndDelete(messageId);
-    return res.status(200).json({ message: "Message deleted" });
+    const message = await MessageModel.findById(messageId);
+    if (!message) {
+      res.status(404).json({ error: 'Message not found' });
+    } else {
+      res.status(200).json(message);
+    }
   } catch (error) {
-    console.log("Error while deleting message", error.message);
-    return res.status(500).json({ error: "Failed to delete message" });
+    res.status(500).json({ error: 'Error fetching message' });
   }
-};
-
-module.exports = {
-  getMessages,
-  getMessageById,
-  addMessage,
-  editMessage,
-  deleteMessage,
 };

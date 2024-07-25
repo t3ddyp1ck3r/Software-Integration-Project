@@ -1,9 +1,5 @@
-const router = require("express").Router();
+import { Request, Response } from 'express';
 
-router.get("/api/health", (req, res) => {
-  res.status(200).json({
-    message: "All up and running !!",
-  });
-});
-
-module.exports = router;
+export const healthCheck = (req: Request, res: Response) => {
+  res.status(200).json({ status: 'OK' });
+};

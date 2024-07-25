@@ -1,48 +1,56 @@
-const pool = require("../boot/database/db_connect");
-const logger = require("../middleware/winston");
-const statusCodes = require("../constants/statusCodes");
-const ratingModel = require("../models/ratingModel");
+import { Request, Response } from 'express';
+import { pool } from '../boot/database/db_connect';
+import { statusCodes } from '../constants/statusCodes';
 
-const addRating = async (req, res) => {
-  const { movieId } = req.params;
-  const { rating } = req.body;
+const addRating = async (req: Request, res: Response): Promise<Response> => {
+  const { rating, movieId } = req.body;
 
-  let movie_id = parseInt(movieId);
+  if (!rating || !movieId) {
+    return res.status(statusCodes.badRequest).json({ message: 'Missing rating or movieId' });
+  }
 
-  if (isNaN(movie_id) || !rating) {
-    res.status(statusCodes.badRequest).json({ message: "Missing parameters" });
-  } else {
-    try {
-      const ratingObj = new ratingModel({
-        email: req.user.email,
-        movie_id,
-        rating, // equivalent of rating: rating
-      });
-
-      await ratingObj.save();
-
-      const ratings = await ratingModel.find({}, { rating });
-
-      const averageRating = ratings.reduce(
-        (acc, rating) => acc + rating.rating,
-        0
-      );
-
-      console.log(averageRating, typeof averageRating);
-      await pool.query("UPDATE movies SET rating = $1 WHERE movie_id = $2;", [
-        averageRating,
-        movie_id,
-      ]);
-      res.status(statusCodes.success).json({ message: "Rating added" });
-    } catch (error) {
-      logger.error(error.stack);
-      res
-        .status(statusCodes.queryError)
-        .json({ error: "Exception occurred while adding rating" });
+  try {
+    const result = await pool.query(
+      "INSERT INTO ratings (rating, movie_id) VALUES ($1, $2) RETURNING *;",
+      [rating, movieId]
+    );
+    return res.status(statusCodes.success).json({ message: 'Rating added successfully', rating: result.rows[0] });
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('Error while adding rating:', error.message);
+      return res.status(statusCodes.queryError).json({ error: 'Exception occurred while adding rating' });
+    } else {
+      console.error('Unexpected error:', error);
+      return res.status(statusCodes.queryError).json({ error: 'Unexpected error occurred' });
     }
   }
 };
 
-module.exports = {
-  addRating,
+const deleteRating = async (req: Request, res: Response): Promise<Response> => {
+  const { ratingId } = req.body;
+
+  if (!ratingId) {
+    return res.status(statusCodes.badRequest).json({ message: 'Missing ratingId' });
+  }
+
+  try {
+    const result = await pool.query(
+      "DELETE FROM ratings WHERE id = $1 RETURNING *;",
+      [ratingId]
+    );
+    if (result.rowCount === 0) {
+      return res.status(statusCodes.notFound).json({ message: 'Rating not found' });
+    }
+    return res.status(statusCodes.success).json({ message: 'Rating deleted successfully' });
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('Error while deleting rating:', error.message);
+      return res.status(statusCodes.queryError).json({ error: 'Exception occurred while deleting rating' });
+    } else {
+      console.error('Unexpected error:', error);
+      return res.status(statusCodes.queryError).json({ error: 'Unexpected error occurred' });
+    }
+  }
 };
+
+export { addRating, deleteRating };

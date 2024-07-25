@@ -1,7 +1,8 @@
-const router = require("express").Router();
+import { Router } from 'express';
+import { addRating } from '../controllers/rating.controller';
 
-const ratingService = require("../controllers/rating.controller");
+const router = Router();
 
-router.post("/:movieId", ratingService.addRating);
+router.post('/:movieId', addRating);
 
-module.exports = router;
+export default router;

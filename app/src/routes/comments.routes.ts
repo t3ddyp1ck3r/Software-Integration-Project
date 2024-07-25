@@ -1,8 +1,9 @@
-const router = require("express").Router();
+import { Router } from 'express';
+import { getCommentsById, addComment } from '../controllers/comments.controller';
 
-const commentServices = require("../controllers/comments.controller");
+const router = Router();
 
-router.get("/:movie_id", commentServices.getCommentsById);
-router.post("/:movie_id", commentServices.addComment);
+router.get('/:movie_id', getCommentsById);
+router.post('/:movie_id', addComment);
 
-module.exports = router;
+export default router;

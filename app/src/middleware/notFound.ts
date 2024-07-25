@@ -1,8 +1,5 @@
-module.exports = (req, res, next) => {
-  const err = new Error("Not Found");
-  res.status(404).json({
-    error: {
-      message: err.message,
-    },
-  });
+import { Request, Response, NextFunction } from 'express';
+
+export const notFound = (req: Request, res: Response, next: NextFunction) => {
+  res.status(404).json({ message: 'Not Found' });
 };

@@ -1,100 +1,54 @@
-const statusCodes = require("../constants/statusCodes");
-const logger = require("../middleware/winston");
-const pool = require("../boot/database/db_connect");
-const jwt = require("jsonwebtoken");
+import { Request, Response } from 'express';
+import UserModel from '../models/userModel';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
-const register = async (req, res) => {
-  const { email, username, password } = req.body;
-  const { country, city, street } = req.body;
+export const register = async (req: Request, res: Response) => {
+  const { username, email, password } = req.body;
 
-  if (!email || !username || !password || !country) {
-    res.status(statusCodes.badRequest).json({ message: "Missing parameters" });
-  } else {
-    const client = await pool.connect();
+  if (!username || !email || !password) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
 
-    try {
-      const result = await client.query(
-        "SELECT * FROM users WHERE email = $1;",
-        [email]
-      );
-      if (result.rowCount) {
-        return res
-          .status(statusCodes.userAlreadyExists)
-          .json({ message: "User already has an account" });
-      } else {
-        await client.query("BEGIN");
-        const addedUser = await client.query(
-          `INSERT INTO users(email, username, password, creation_date)
-           VALUES ($1, $2, crypt($3, gen_salt('bf')), $4);`,
-          [email, username, password, req.body.creation_date]
-        );
+  const hash = bcrypt.hashSync(password, 10);
 
-        logger.info("USER ADDED", addedUser.rowCount);
-
-        const address = await client.query(
-          `INSERT INTO addresses(email, country, street, city) VALUES ($1, $2, $3, $4);`,
-          [email, country, street, city]
-        );
-        logger.info("ADDRESS ADDED", address.rowCount);
-
-        res.status(statusCodes.success).json({ message: "User created" });
-        await client.query("COMMIT");
-      }
-    } catch (error) {
-      await client.query("ROLLBACK");
-      logger.error(error.stack);
-      res.status(statusCodes.queryError).json({
-        message: "Exception occurred while registering",
-      });
-    } finally {
-      client.release();
-    }
+  try {
+    const user = new UserModel({ username, email, password: hash });
+    await user.save();
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to register user' });
   }
 };
 
-const login = async (req, res) => {
+export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    res.status(statusCodes.badRequest).json({ message: "Missing parameters" });
-  } else {
-    pool.query(
-      "SELECT * FROM users WHERE email = $1 AND password = crypt($2, password);",
-      [email, password],
-      (err, rows) => {
-        if (err) {
-          logger.error(err.stack);
-          res
-            .status(statusCodes.queryError)
-            .json({ error: "Exception occurred while logging in" });
-        } else {
-          if (rows.rows[0]) {
-            req.session.user = {
-              email: rows.rows[0].email,
-            };
-
-            const token = jwt.sign(
-              { user: { email: rows.rows[0].email } },
-              process.env.JWT_SECRET_KEY,
-              {
-                expiresIn: "1h",
-              }
-            );
-            res
-              .status(statusCodes.success)
-              .json({ token, username: rows.rows[0].username });
-          } else {
-            res
-              .status(statusCodes.notFound)
-              .json({ message: "Incorrect email/password" });
-          }
-        }
-      }
-    );
+    return res.status(400).json({ error: 'Missing required fields' });
   }
-};
 
-module.exports = {
-  register,
-  login,
+  try {
+    const user = await UserModel.findOne({ email });
+
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    req.session.user = { _id: user._id };
+
+    const secretKey = process.env.JWT_SECRET_KEY;
+
+    if (!secretKey) {
+      return res.status(500).json({ error: 'JWT secret key is not defined' });
+    }
+
+    const token = jwt.sign({ id: user._id, email: user.email }, secretKey, {
+      expiresIn: '1h',
+    });
+
+    res.status(200).json({ token });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to log in user' });
+  }
 };

@@ -1,81 +1,30 @@
-const pool = require("../boot/database/db_connect");
-const logger = require("../middleware/winston");
-const statusCodes = require("../constants/statusCodes");
+import { Request, Response } from 'express';
+import MovieModel from '../models/movieModel';
 
-const getMovies = async (req, res) => {
-  const { category } = req.query;
-
-  if (category) {
-    const result = await getMoviesByCategory(category);
-    return res.status(statusCodes.success).json({ movies: result });
-  } else {
-    try {
-      const movies = await pool.query(
-        "SELECT * FROM movies GROUP BY type, movie_id;"
-      );
-
-      const groupedMovies = movies.rows.reduce((acc, movie) => {
-        const { type } = movie;
-        if (!acc[type]) {
-          acc[type] = [];
-        }
-        acc[type].push(movie);
-        return acc;
-      }, {});
-
-      return res.status(statusCodes.success).json({ movies: groupedMovies });
-    } catch (error) {
-      logger.error(error.stack);
-      res
-        .status(statusCodes.queryError)
-        .json({ error: "Exception occured while fetching movies" });
-    }
-  }
-};
-
-const getMoviesByCategory = async (category) => {
+export const getMovies = async (req: Request, res: Response) => {
   try {
-    const movies = await pool.query(
-      "SELECT * FROM movies WHERE type = $1 ORDER BY release_date DESC;",
-      [category]
-    );
-    return movies.rows;
+    const movies = await MovieModel.find();
+    res.status(200).json(movies);
   } catch (error) {
-    logger.error(error.stack);
+    res.status(500).json({ error: 'Error fetching movies' });
   }
 };
 
-const getTopRatedMovies = async (req, res) => {
+export const getTopRatedMovies = async (req: Request, res: Response) => {
   try {
-    const movies = await pool.query(
-      "SELECT * FROM movies ORDER BY rating DESC LIMIT 10;"
-    );
-    res.status(statusCodes.success).json({ movies: movies.rows });
+    const topMovies = await MovieModel.find().sort({ rating: -1 }).limit(10);
+    res.status(200).json(topMovies);
   } catch (error) {
-    logger.error(error.stack);
-    res
-      .status(statusCodes.queryError)
-      .json({ error: "Exception occured while fetching top rated movies" });
+    res.status(500).json({ error: 'Error fetching top-rated movies' });
   }
 };
 
-const getSeenMovies = async (req, res) => {
+export const getSeenMovies = async (req: Request, res: Response) => {
+  const userId = req.session.user._id;
   try {
-    const movies = await pool.query(
-      "SELECT * FROM seen_movies S JOIN movies M ON S.movie_id = M.movie_id WHERE email = $1;",
-      [req.user.email]
-    );
-    res.status(statusCodes.success).json({ movies: movies.rows });
+    const seenMovies = await MovieModel.find({ seenBy: userId });
+    res.status(200).json(seenMovies);
   } catch (error) {
-    logger.error(error.stack);
-    res
-      .status(statusCodes.queryError)
-      .json({ error: "Exception occured while fetching seen movies" });
+    res.status(500).json({ error: 'Error fetching seen movies' });
   }
-};
-
-module.exports = {
-  getMovies,
-  getTopRatedMovies,
-  getSeenMovies,
 };

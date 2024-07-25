@@ -1,45 +1,15 @@
-const mongoose = require("mongoose");
+import { Schema, model } from 'mongoose';
 
-const commentSchema = new mongoose.Schema(
-  {
-    movie_id: {
-      type: Number,
-      required: [true, "movie is required"],
-    },
-    username: {
-      type: String,
-      required: [true, "username is required"],
-    },
-    comment: {
-      type: String,
-      required: [true, "comment is required"],
-    },
-    title: {
-      type: String,
-      required: [true, "title is required"],
-    },
-    rating: {
-      type: Number,
-      min: 0,
-      max: 5,
-      required: [true, "rating is required"],
-    },
-    downvotes: {
-      type: Number,
-      min: 0,
-      default: 0,
-    },
-    upvotes: {
-      type: Number,
-      min: 0,
-      default: 0,
-    },
-  },
-  {
-    timestamps: {
-      createdAt: "created_at",
-    },
-  }
-);
+interface IComment {
+  content: string;
+  postId: string;
+}
 
-module.exports = mongoose.model("Comment", commentSchema);
+const commentSchema = new Schema<IComment>({
+  content: { type: String, required: true },
+  postId: { type: String, required: true },
+});
+
+const CommentModel = model<IComment>('Comment', commentSchema);
+
+export default CommentModel;

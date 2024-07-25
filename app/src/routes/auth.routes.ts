@@ -1,11 +1,11 @@
-const express = require("express");
-const router = express.Router();
+import { Router } from 'express';
+import { signup, signin, getUser, logout } from '../controllers/auth.controller';
 
-const authServices = require("../controllers/auth.controller");
+const router = Router();
 
-router.post("/signup", authServices.signup);
-router.post("/login", authServices.signin);
-router.get("/me", authServices.getUser);
-router.get("/logout", authServices.logout);
+router.post('/signup', signup);
+router.post('/login', signin);
+router.get('/me', getUser);
+router.get('/logout', logout);
 
-module.exports = router;
+export default router;
