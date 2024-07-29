@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
-dotenv.config({ path: '.env.dev' });
+dotenv.config({ path: '.env.release' });
 
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import mongoose from 'mongoose';
@@ -27,7 +27,7 @@ const app = express();
 
 mongoose.connect('mongodb://localhost:27017/epita')
   .then(() => logger.info('MongoDB Connected'))
-  .catch((error) => logger.error('Error connecting to DB: ' + error));
+  .catch((error: Error) => logger.error('Error connecting to DB: ' + error));
 
 // MIDDLEWARE
 const registerCoreMiddleWare = () => {
@@ -72,7 +72,7 @@ const registerCoreMiddleWare = () => {
 
 // handling uncaught exceptions
 const handleError = () => {
-  process.on('uncaughtException', (err) => {
+  process.on('uncaughtException', (err: Error) => {
     logger.error(`UNCAUGHT_EXCEPTION OCCURRED : ${JSON.stringify(err.stack)}`);
   });
 };
@@ -99,4 +99,4 @@ const startApp = () => {
   }
 };
 
-export { startApp };
+startApp();
