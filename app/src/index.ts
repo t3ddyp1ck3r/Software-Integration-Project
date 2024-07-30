@@ -25,7 +25,8 @@ import commentsRoutes from './routes/comments.routes';
 const PORT = process.env.PORT || 8080;
 const app = express();
 
-mongoose.connect('mongodb://localhost:27017/epita')
+mongoose
+  .connect('mongodb://localhost:27017/epita')
   .then(() => logger.info('MongoDB Connected'))
   .catch((error: Error) => logger.error('Error connecting to DB: ' + error));
 
@@ -41,7 +42,7 @@ const registerCoreMiddleWare = () => {
           secure: false,
           httpOnly: true,
         },
-      })
+      }),
     );
 
     app.use(morgan('combined', { stream }));
@@ -92,11 +93,14 @@ const startApp = () => {
       `startup :: Error while booting the application ${JSON.stringify(
         err,
         undefined,
-        2
-      )}`
+        2,
+      )}`,
     );
     throw err;
   }
 };
 
 startApp();
+
+// Export the app for testing purposes
+export { app };

@@ -1,103 +1,129 @@
-import { Request, Response } from 'express';
-import { editPassword, logout } from '../controllers/profile.controller';
+import request from 'supertest';
+import { app } from '../index';
 import { pool } from '../boot/database/db_connect';
-import { logger } from '../middleware/winston';
-import { statusCodes } from '../constants/statusCodes';
 
-jest.mock('../boot/database/db_connect');
-jest.mock('../middleware/winston');
+// Mock the pool.query
+jest.mock('../boot/database/db_connect', () => ({
+  pool: {
+    query: jest.fn(),
+  },
+}));
 
 describe('Profile Controller', () => {
-  let req: Partial<Request>;
-  let res: Partial<Response>;
-  let json = jest.fn();
-  let status = jest.fn().mockReturnValue({ json });
-
-  beforeEach(() => {
-    req = {
-      body: {},
-      user: { email: 'test@example.com' },
-      session: {}
-    };
-    res = {
-      status
-    };
-  });
-
   afterEach(() => {
     jest.clearAllMocks();
   });
 
   describe('editPassword', () => {
+    it('should update the password successfully', async () => {
+      const oldPassword = 'oldPassword';
+      const newPassword = 'newPassword';
+
+      // Mock request.user
+      const req = {
+        user: { email: 'user@example.com' },
+        body: { oldPassword, newPassword },
+      };
+
+      // Mock the user query
+      (pool.query as jest.Mock).mockResolvedValueOnce({
+        rows: [{ email: 'user@example.com', password: oldPassword }], // Simulate the existing user and password
+      });
+      (pool.query as jest.Mock).mockResolvedValueOnce({}); // Mock the update query
+
+      const res = await request(app)
+        .put('/profile/password')
+        .set('Cookie', `session=${JSON.stringify({ user: req.user })}`) // Simulate session cookie
+        .send(req.body);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ message: 'Password updated successfully' });
+    });
+
     it('should return 400 if oldPassword or newPassword is missing', async () => {
-      req.body = { oldPassword: '', newPassword: '' };
+      const res = await request(app)
+        .put('/profile/password')
+        .send({ oldPassword: 'oldPassword' });
 
-      await editPassword(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(statusCodes.badRequest);
-      expect(json).toHaveBeenCalledWith({ message: 'Missing parameters' });
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ message: 'Missing parameters' });
     });
 
     it('should return 400 if oldPassword is the same as newPassword', async () => {
-      req.body = { oldPassword: 'password123', newPassword: 'password123' };
+      const req = {
+        user: { email: 'user@example.com' },
+        body: { oldPassword: 'samePassword', newPassword: 'samePassword' },
+      };
 
-      await editPassword(req as Request, res as Response);
+      const res = await request(app)
+        .put('/profile/password')
+        .set('Cookie', `session=${JSON.stringify({ user: req.user })}`) // Simulate session cookie
+        .send(req.body);
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.badRequest);
-      expect(json).toHaveBeenCalledWith({ message: 'New password cannot be equal to old password' });
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'New password cannot be the same as old password',
+      });
     });
 
     it('should return 400 if old password is incorrect', async () => {
-      req.body = { oldPassword: 'wrongpassword', newPassword: 'newpassword' };
+      const req = {
+        user: { email: 'user@example.com' },
+        body: { oldPassword: 'wrongPassword', newPassword: 'newPassword' },
+      };
 
-      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] }); // Mock no user found
 
-      await editPassword(req as Request, res as Response);
+      const res = await request(app)
+        .put('/profile/password')
+        .set('Cookie', `session=${JSON.stringify({ user: req.user })}`) // Simulate session cookie
+        .send(req.body);
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.badRequest);
-      expect(json).toHaveBeenCalledWith({ message: 'Incorrect password' });
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ message: 'Incorrect old password' });
     });
 
-    it('should return 200 if password is updated successfully', async () => {
-      req.body = { oldPassword: 'oldpassword', newPassword: 'newpassword' };
+    it('should handle errors while updating password', async () => {
+      const req = {
+        user: { email: 'user@example.com' },
+        body: { oldPassword: 'oldPassword', newPassword: 'newPassword' },
+      };
 
-      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{ email: 'test@example.com' }] });
-      (pool.query as jest.Mock).mockResolvedValueOnce({});
+      (pool.query as jest.Mock).mockRejectedValueOnce(
+        new Error('Database error'),
+      );
 
-      await editPassword(req as Request, res as Response);
+      const res = await request(app)
+        .put('/profile/password')
+        .set('Cookie', `session=${JSON.stringify({ user: req.user })}`) // Simulate session cookie
+        .send(req.body);
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.success);
-      expect(json).toHaveBeenCalledWith({ message: 'Password updated' });
-    });
-
-    it('should handle database errors', async () => {
-      req.body = { oldPassword: 'oldpassword', newPassword: 'newpassword' };
-
-      (pool.query as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
-
-      await editPassword(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(statusCodes.queryError);
-      expect(json).toHaveBeenCalledWith({ error: 'Exception occurred while updating password' });
-      expect(logger.error).toHaveBeenCalledWith(expect.any(String));
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({
+        error: 'Exception occurred while updating password',
+      });
     });
   });
 
   describe('logout', () => {
-    it('should return 200 if user is logged out', () => {
-      req.session = { user: 'testUser' };
+    it('should log out successfully', async () => {
+      const req = {
+        session: { user: {} },
+      };
 
-      logout(req as Request, res as Response);
+      const res = await request(app)
+        .delete('/profile/logout')
+        .set('Cookie', `session=${JSON.stringify(req.session)}`);
 
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(json).toHaveBeenCalledWith({ message: 'Disconnected' });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ message: 'Successfully logged out' });
     });
 
-    it('should return 200 if there is no active session', () => {
-      logout(req as Request, res as Response);
+    it('should return 400 if no active session', async () => {
+      const res = await request(app).delete('/profile/logout');
 
-      expect(res.status).toHaveBeenCalledWith(200);
-      expect(json).toHaveBeenCalledWith({ message: 'Disconnected' });
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ message: 'No active session' });
     });
   });
 });

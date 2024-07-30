@@ -1,29 +1,35 @@
-const express = require("express");
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import helmet from 'helmet';
+import session from 'express-session';
+import morgan from 'morgan';
+import { logger, stream } from '../middleware/winston';
+import { notFound } from '../middleware/notFound';
+import { healthCheck } from '../middleware/healthCheck';
+import { verifyToken } from '../middleware/authentication';
+import { validator } from '../middleware/validator';
+
+// ROUTES
+import authRoutes from '../routes/auth.routes';
+import messageRoutes from '../routes/messages.routes';
+import usersRoutes from '../routes/users.routes';
+import profileRoutes from '../routes/profile.routes';
+import moviesRoutes from '../routes/movies.routes';
+import ratingRoutes from '../routes/rating.routes';
+import commentsRoutes from '../routes/comments.routes';
+
 const PORT = process.env.PORT || 8080;
 const app = express();
 
-const cors = require("cors");
-const helmet = require("helmet");
-const mongoose = require("mongoose");
-const session = require("express-session");
-const morgan = require("morgan");
-const logger = require("../middleware/winston");
-const notFound = require("../middleware/notFound");
-const healthCheck = require("../middleware/healthCheck");
-const verifyToken = require("../middleware/authentication");
-const validator = require("../middleware/validator");
-
-// ROUTES
-const authRoutes = require("../routes/auth.routes");
-const messageRoutes = require("../routes/messages.routes");
-const usersRoutes = require("../routes/users.routes");
-const profileRoutes = require("../routes/profile.routes");
-const moviesRoutes = require("../routes/movies.routes");
-const ratingRoutes = require("../routes/rating.routes");
-const commentsRoutes = require("../routes/comments.routes");
+// MongoDB connection
+const mongoUri = process.env.MONGO_URI;
+if (!mongoUri) {
+  throw new Error("MONGO_URI environment variable is not defined");
+}
 
 try {
-  mongoose.connect("mongodb://localhost:27017/epita");
+  mongoose.connect(mongoUri);
   logger.info("MongoDB Connected");
 } catch (error) {
   logger.error("Error connecting to DB" + error);
@@ -35,76 +41,73 @@ const registerCoreMiddleWare = () => {
     // using our session
     app.use(
       session({
-        secret: "1234",
+        secret: '1234',
         resave: false,
         saveUninitialized: true,
         cookie: {
           secure: false,
           httpOnly: true,
         },
-      })
+      }),
     );
 
-    app.use(morgan("combined", { stream: logger.stream }));
-    app.use(express.json()); // returning middleware that only parses Json
+    app.use(morgan('combined', { stream }));
+    app.use(express.json()); // returning middleware that only parses JSON
     app.use(cors({})); // enabling CORS
     app.use(helmet()); // enabling helmet -> setting response headers
 
     app.use(validator);
     app.use(healthCheck);
 
-    app.use("/auth", authRoutes);
-    app.use("/users", usersRoutes);
+    app.use('/auth', authRoutes);
+    app.use('/users', usersRoutes);
 
     // Route registration
-    app.use("/messages", verifyToken, messageRoutes);
-    app.use("/profile", verifyToken, profileRoutes);
-    app.use("/movies", verifyToken, moviesRoutes);
-    app.use("/ratings", verifyToken, ratingRoutes);
-    app.use("/comments", verifyToken, commentsRoutes);
+    app.use('/messages', verifyToken, messageRoutes);
+    app.use('/profile', verifyToken, profileRoutes);
+    app.use('/movies', verifyToken, moviesRoutes);
+    app.use('/ratings', verifyToken, ratingRoutes);
+    app.use('/comments', verifyToken, commentsRoutes);
 
     // 404 handling for not found
     app.use(notFound);
 
-    logger.http("Done registering all middlewares");
+    logger.http('Done registering all middlewares');
   } catch (err) {
-    logger.error("Error thrown while executing registerCoreMiddleWare");
+    logger.error('Error thrown while executing registerCoreMiddleWare');
     process.exit(1);
   }
 };
 
 // handling uncaught exceptions
 const handleError = () => {
-  // 'process' is a built it object in nodejs
-  // if uncaught exceptoin, then we execute this
-  //
-  process.on("uncaughtException", (err) => {
-    logger.error(`UNCAUGHT_EXCEPTION OCCURED : ${JSON.stringify(err.stack)}`);
+  process.on('uncaughtException', (err) => {
+    logger.error(`UNCAUGHT_EXCEPTION OCCURRED: ${JSON.stringify(err.stack)}`);
   });
 };
 
-// start applicatoin
+// start application
 const startApp = () => {
   try {
     // register core application level middleware
     registerCoreMiddleWare();
 
     app.listen(PORT, () => {
-      logger.info("Listening on 127.0.0.1:" + PORT);
+      logger.info('Listening on 127.0.0.1:' + PORT);
     });
 
     // exit on uncaught exception
     handleError();
   } catch (err) {
     logger.error(
-      `startup :: Error while booting the applicaiton ${JSON.stringify(
+      `startup :: Error while booting the application ${JSON.stringify(
         err,
         undefined,
-        2
-      )}`
+        2,
+      )}`,
     );
     throw err;
   }
 };
 
-module.exports = { startApp };
+export { startApp };

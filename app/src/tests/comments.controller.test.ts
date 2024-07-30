@@ -1,100 +1,104 @@
-import { Request, Response } from 'express';
-import { addComment, deleteComment } from '../controllers/comments.controller';
-import { pool } from '../boot/database/db_connect';
-import { statusCodes } from '../constants/statusCodes';
+import request from 'supertest';
+import { app } from '../index';
+import CommentModel from '../models/commentModel';
 
-jest.mock('../boot/database/db_connect');
+// Mock the CommentModel
+jest.mock('../models/commentModel');
 
 describe('Comments Controller', () => {
-  let req: Partial<Request>;
-  let res: Partial<Response>;
-  let json = jest.fn();
-  let status = jest.fn().mockReturnValue({ json });
-
-  beforeEach(() => {
-    req = {
-      body: {}
-    };
-    res = {
-      status
-    };
-  });
-
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('addComment', () => {
-    it('should return 400 if content is missing', async () => {
-      req.body = { content: '' };
+  describe('getCommentsById', () => {
+    it('should get comments by movie ID successfully', async () => {
+      const mockComments = [
+        { _id: 'commentId1', content: 'Great movie!', author: 'userId1' },
+        { _id: 'commentId2', content: 'Not bad.', author: 'userId2' },
+      ];
+      (CommentModel.find as jest.Mock).mockResolvedValue(mockComments);
 
-      await addComment(req as Request, res as Response);
+      const res = await request(app).get('/comments/1');
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.badRequest);
-      expect(json).toHaveBeenCalledWith({ message: 'Missing content' });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(mockComments);
     });
 
-    it('should return 200 and add comment if content is provided', async () => {
-      req.body = { content: 'This is a test comment', postId: 1 };
+    it('should return 400 if movie ID is not provided', async () => {
+      const res = await request(app).get('/comments/');
 
-      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: 'Movie ID is required' });
+    });
 
-      await addComment(req as Request, res as Response);
+    it('should return 200 with an empty array if no comments found', async () => {
+      (CommentModel.find as jest.Mock).mockResolvedValue([]);
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.success);
-      expect(json).toHaveBeenCalledWith({ message: 'Comment added successfully' });
-      expect(pool.query).toHaveBeenCalledWith(
-        "INSERT INTO comments (content, post_id) VALUES ($1, $2) RETURNING *;",
-        ['This is a test comment', 1]
+      const res = await request(app).get('/comments/1');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]); // Should return an empty array if no comments found
+    });
+
+    it('should handle errors when fetching comments', async () => {
+      (CommentModel.find as jest.Mock).mockRejectedValue(
+        new Error('Error fetching comments'),
       );
-    });
 
-    it('should handle database errors', async () => {
-      req.body = { content: 'This is a test comment', postId: 1 };
+      const res = await request(app).get('/comments/1');
 
-      (pool.query as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
-
-      await addComment(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(statusCodes.queryError);
-      expect(json).toHaveBeenCalledWith({ error: 'Exception occurred while adding comment' });
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({ error: 'Error fetching comments' });
     });
   });
 
-  describe('deleteComment', () => {
-    it('should return 400 if commentId is missing', async () => {
-      req.body = { commentId: '' };
+  describe('addComment', () => {
+    it('should add a comment successfully', async () => {
+      const mockComment = {
+        _id: 'commentId',
+        content: 'Great movie!',
+        author: 'userId1',
+      };
+      (CommentModel.prototype.save as jest.Mock).mockResolvedValue(mockComment);
 
-      await deleteComment(req as Request, res as Response);
+      const res = await request(app)
+        .post('/comments/1')
+        .send({ content: 'Great movie!', author: 'userId1' });
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.badRequest);
-      expect(json).toHaveBeenCalledWith({ message: 'Missing commentId' });
+      expect(res.status).toBe(201);
+      expect(res.body).toEqual(mockComment);
     });
 
-    it('should return 200 and delete comment if commentId is provided', async () => {
-      req.body = { commentId: 1 };
+    it('should return 400 if required fields are missing', async () => {
+      const res = await request(app)
+        .post('/comments/1')
+        .send({ content: '', author: 'userId1' });
 
-      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{ id: 1 }] });
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: 'Missing required fields' });
+    });
 
-      await deleteComment(req as Request, res as Response);
+    it('should return 400 if movie ID is not provided', async () => {
+      const res = await request(app).post('/comments/').send({
+        content: 'Great movie!',
+        author: 'userId1',
+      });
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.success);
-      expect(json).toHaveBeenCalledWith({ message: 'Comment deleted successfully' });
-      expect(pool.query).toHaveBeenCalledWith(
-        "DELETE FROM comments WHERE id = $1 RETURNING *;",
-        [1]
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: 'Movie ID is required' });
+    });
+
+    it('should handle errors when adding a comment', async () => {
+      (CommentModel.prototype.save as jest.Mock).mockRejectedValue(
+        new Error('Error adding comment'),
       );
-    });
 
-    it('should handle database errors', async () => {
-      req.body = { commentId: 1 };
+      const res = await request(app)
+        .post('/comments/1')
+        .send({ content: 'Great movie!', author: 'userId1' });
 
-      (pool.query as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
-
-      await deleteComment(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(statusCodes.queryError);
-      expect(json).toHaveBeenCalledWith({ error: 'Exception occurred while deleting comment' });
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({ error: 'Error adding comment' });
     });
   });
 });

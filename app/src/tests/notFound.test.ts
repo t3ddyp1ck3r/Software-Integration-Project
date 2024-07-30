@@ -1,23 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { notFound } from '../middleware/notFound';
 
-describe('Not Found Middleware', () => {
-  let req: Partial<Request>;
-  let res: Partial<Response>;
-  let next: NextFunction = jest.fn();
-
-  beforeEach(() => {
-    req = {};
-    res = {
+describe('NotFound Middleware', () => {
+  it('should return status 404 with message Not Found', () => {
+    const req = {} as Request;
+    const res = {
       status: jest.fn().mockReturnThis(),
-      json: jest.fn().mockReturnThis(),
-    };
-  });
+      json: jest.fn(),
+    } as unknown as Response;
+    const next = jest.fn() as NextFunction;
 
-  it('should return 404 and a not found message', () => {
-    notFound(req as Request, res as Response, next);
+    notFound(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ error: 'Not Found' });
+    expect(res.json).toHaveBeenCalledWith({ message: 'Not Found' });
   });
 });

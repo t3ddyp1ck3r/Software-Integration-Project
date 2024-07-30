@@ -56,7 +56,7 @@ const signin = async (req: Request, res: Response): Promise<Response> => {
     const token = jwt.sign(
       { user: { id: user._id, email: user.email } },
       process.env.JWT_SECRET_KEY as string,
-      { expiresIn: '1h' }
+      { expiresIn: '1h' },
     );
 
     return res.status(200).json({ token });
@@ -77,9 +77,11 @@ const getUser = async (req: Request, res: Response): Promise<Response> => {
   }
 
   try {
-    const user = await userModel.findById(req.session.user._id, {
-      password: 0,
-    }).populate('messages');
+    const user = await userModel
+      .findById(req.session.user._id, {
+        password: 0,
+      })
+      .populate('messages');
 
     if (!user) {
       return res.status(400).json({ message: 'User not found' });

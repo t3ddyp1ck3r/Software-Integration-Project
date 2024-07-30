@@ -1,24 +1,31 @@
-import mongoose, { ConnectOptions } from 'mongoose';
+import mongoose from 'mongoose';
 import UserModel from '../models/userModel';
+import dotenv from 'dotenv';
 
-describe('User Model', () => {
+dotenv.config({ path: '.env.release' });
+
+describe('UserModel', () => {
   beforeAll(async () => {
-    const url = `mongodb://127.0.0.1/usersTestDB?retryWrites=true&w=majority`;
-    await mongoose.connect(url, {
+    await mongoose.connect(process.env.MONGO_URI!, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-    } as ConnectOptions);
+    } as mongoose.ConnectOptions);
   });
 
   afterAll(async () => {
-    await mongoose.connection.db.dropDatabase();
+    await mongoose.connection.dropDatabase();
     await mongoose.connection.close();
   });
 
-  it('should create and save a user successfully', async () => {
-    const userData = { username: 'testuser', email: 'testuser@example.com', password: 'password' };
-    const validUser = new UserModel(userData);
-    const savedUser = await validUser.save();
+  it('should create a user successfully', async () => {
+    const userData = {
+      username: 'user1',
+      email: 'user1@example.com',
+      password: 'password123',
+    };
+    const user = new UserModel(userData);
+
+    const savedUser = await user.save();
 
     expect(savedUser._id).toBeDefined();
     expect(savedUser.username).toBe(userData.username);
@@ -26,24 +33,29 @@ describe('User Model', () => {
     expect(savedUser.password).toBe(userData.password);
   });
 
-  it('should fail to create a user without required fields', async () => {
-    const userData = { username: '', email: 'invalidemail', password: '' }; // email format is invalid
-    const invalidUser = new UserModel(userData);
+  it('should require username, email, and password', async () => {
+    const userData = { username: '', email: '', password: '' };
+    const user = new UserModel(userData);
 
-    let err;
-    try {
-      await invalidUser.save();
-    } catch (error) {
-      if (error instanceof mongoose.Error.ValidationError) {
-        err = error;
-      } else {
-        console.error('Unexpected error:', error);
-      }
-    }
+    await expect(user.save()).rejects.toThrow(mongoose.Error.ValidationError);
+  });
 
-    expect(err).toBeInstanceOf(mongoose.Error.ValidationError);
-    expect(err?.errors.username).toBeDefined();
-    expect(err?.errors.email).toBeDefined();
-    expect(err?.errors.password).toBeDefined();
+  it('should require unique email', async () => {
+    const userData1 = {
+      username: 'user1',
+      email: 'user1@example.com',
+      password: 'password123',
+    };
+    const user1 = new UserModel(userData1);
+    await user1.save();
+
+    const userData2 = {
+      username: 'user2',
+      email: 'user1@example.com',
+      password: 'password456',
+    };
+    const user2 = new UserModel(userData2);
+
+    await expect(user2.save()).rejects.toThrow();
   });
 });

@@ -3,6 +3,9 @@ import CommentModel from '../models/commentModel';
 
 export const getCommentsById = async (req: Request, res: Response) => {
   const { movie_id } = req.params;
+  if (!movie_id) {
+    return res.status(400).json({ error: 'Movie ID is required' });
+  }
   try {
     const comments = await CommentModel.find({ movie_id });
     res.status(200).json(comments);
@@ -14,6 +17,11 @@ export const getCommentsById = async (req: Request, res: Response) => {
 export const addComment = async (req: Request, res: Response) => {
   const { movie_id } = req.params;
   const { content, author } = req.body;
+
+  if (!movie_id || !content || !author) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
   try {
     const newComment = new CommentModel({ movie_id, content, author });
     await newComment.save();

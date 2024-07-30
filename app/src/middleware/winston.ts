@@ -6,11 +6,11 @@ const options = {
     level: 'info',
     filename: './logs/app.log',
     handleExceptions: true,
-    maxsize: 5242880, 
+    maxsize: 5242880,
     maxFiles: 5,
     format: winston.format.combine(
       winston.format.timestamp(),
-      winston.format.json()
+      winston.format.json(),
     ),
   },
   console: {
@@ -18,7 +18,7 @@ const options = {
     handleExceptions: true,
     format: winston.format.combine(
       winston.format.colorize(),
-      winston.format.simple()
+      winston.format.simple(),
     ),
   },
 };

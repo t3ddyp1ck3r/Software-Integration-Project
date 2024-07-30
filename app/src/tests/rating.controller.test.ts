@@ -1,105 +1,109 @@
-import { Request, Response } from 'express';
-import { addRating, deleteRating } from '../controllers/rating.controller';
+import request from 'supertest';
+import { app } from '../index';
 import { pool } from '../boot/database/db_connect';
-import { statusCodes } from '../constants/statusCodes';
 
-jest.mock('../boot/database/db_connect', () => {
-  const mPool = {
+// Mock the pool.query
+jest.mock('../boot/database/db_connect', () => ({
+  pool: {
     query: jest.fn(),
-  };
-  return { pool: mPool };
-});
+  },
+}));
 
 describe('Rating Controller', () => {
-  let req: Partial<Request>;
-  let res: Partial<Response>;
-  let json = jest.fn();
-  let status = jest.fn().mockReturnValue({ json });
-
-  beforeEach(() => {
-    req = {
-      body: {}
-    };
-    res = {
-      status
-    };
-  });
-
   afterEach(() => {
     jest.clearAllMocks();
   });
 
   describe('addRating', () => {
-    it('should return 400 if rating is missing', async () => {
-      req.body = { rating: '' };
+    it('should add a rating successfully', async () => {
+      const ratingData = { rating: 5, movieId: '1' };
 
-      await addRating(req as Request, res as Response);
+      (pool.query as jest.Mock).mockResolvedValueOnce({
+        rows: [{ id: '1', rating: 5, movie_id: '1' }],
+      });
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.badRequest);
-      expect(json).toHaveBeenCalledWith({ message: 'Missing rating' });
+      const res = await request(app).post('/ratings').send(ratingData);
+
+      expect(res.status).toBe(201); // Use 201 for created resource
+      expect(res.body).toEqual({
+        message: 'Rating added successfully',
+        rating: { id: '1', rating: 5, movie_id: '1' },
+      });
     });
 
-    it('should return 200 and add rating if rating is provided', async () => {
-      req.body = { rating: 5, movieId: 1 };
+    it('should return 400 if rating or movieId is missing', async () => {
+      const res = await request(app).post('/ratings').send({ rating: 5 });
 
-      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ message: 'Missing rating or movieId' });
+    });
 
-      await addRating(req as Request, res as Response);
+    it('should return 400 if rating is invalid', async () => {
+      const res = await request(app)
+        .post('/ratings')
+        .send({ rating: 6, movieId: '1' });
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.success);
-      expect(json).toHaveBeenCalledWith({ message: 'Rating added successfully' });
-      expect(pool.query).toHaveBeenCalledWith(
-        "INSERT INTO ratings (rating, movie_id) VALUES ($1, $2) RETURNING *;",
-        [5, 1]
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ message: 'Rating must be between 1 and 5' });
+    });
+
+    it('should handle errors while adding rating', async () => {
+      (pool.query as jest.Mock).mockRejectedValueOnce(
+        new Error('Database error'),
       );
-    });
 
-    it('should handle database errors', async () => {
-      req.body = { rating: 5, movieId: 1 };
+      const res = await request(app)
+        .post('/ratings')
+        .send({ rating: 5, movieId: '1' });
 
-      (pool.query as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
-
-      await addRating(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(statusCodes.queryError);
-      expect(json).toHaveBeenCalledWith({ error: 'Exception occurred while adding rating' });
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({
+        error: 'Exception occurred while adding rating',
+      });
     });
   });
 
   describe('deleteRating', () => {
+    it('should delete a rating successfully', async () => {
+      const ratingId = { ratingId: '1' };
+
+      (pool.query as jest.Mock).mockResolvedValueOnce({ rowCount: 1 });
+
+      const res = await request(app).delete('/ratings').send(ratingId);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ message: 'Rating deleted successfully' });
+    });
+
     it('should return 400 if ratingId is missing', async () => {
-      req.body = { ratingId: '' };
+      const res = await request(app).delete('/ratings').send({});
 
-      await deleteRating(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(statusCodes.badRequest);
-      expect(json).toHaveBeenCalledWith({ message: 'Missing ratingId' });
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ message: 'Missing ratingId' });
     });
 
-    it('should return 200 and delete rating if ratingId is provided', async () => {
-      req.body = { ratingId: 1 };
+    it('should return 404 if rating is not found', async () => {
+      (pool.query as jest.Mock).mockResolvedValueOnce({ rowCount: 0 });
 
-      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{ id: 1 }] });
+      const res = await request(app)
+        .delete('/ratings')
+        .send({ ratingId: 'nonexistentId' });
 
-      await deleteRating(req as Request, res as Response);
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ message: 'Rating not found' });
+    });
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.success);
-      expect(json).toHaveBeenCalledWith({ message: 'Rating deleted successfully' });
-      expect(pool.query).toHaveBeenCalledWith(
-        "DELETE FROM ratings WHERE id = $1 RETURNING *;",
-        [1]
+    it('should handle errors while deleting rating', async () => {
+      (pool.query as jest.Mock).mockRejectedValueOnce(
+        new Error('Database error'),
       );
-    });
 
-    it('should handle database errors', async () => {
-      req.body = { ratingId: 1 };
+      const res = await request(app).delete('/ratings').send({ ratingId: '1' });
 
-      (pool.query as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
-
-      await deleteRating(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(statusCodes.queryError);
-      expect(json).toHaveBeenCalledWith({ error: 'Exception occurred while deleting rating' });
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({
+        error: 'Exception occurred while deleting rating',
+      });
     });
   });
 });

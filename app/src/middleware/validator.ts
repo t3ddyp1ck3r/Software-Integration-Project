@@ -1,6 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 
-export const validateRequest = (req: Request, res: Response, next: NextFunction) => {
+export const validator = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   if (req.body && req.body.name) {
     next();
   } else {

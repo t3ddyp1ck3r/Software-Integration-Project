@@ -1,105 +1,138 @@
-import { Request, Response } from 'express';
-import { addMovie, deleteMovie } from '../controllers/movies.controller';
-import { pool } from '../boot/database/db_connect';
-import { statusCodes } from '../constants/statusCodes';
+import request from 'supertest';
+import { app } from '../index';
+import MovieModel from '../models/movieModel';
 
-jest.mock('../boot/database/db_connect', () => {
-  const mPool = {
-    query: jest.fn(),
-  };
-  return { pool: mPool };
-});
+// Mock the MovieModel
+jest.mock('../models/movieModel');
 
 describe('Movies Controller', () => {
-  let req: Partial<Request>;
-  let res: Partial<Response>;
-  let json = jest.fn();
-  let status = jest.fn().mockReturnValue({ json });
-
-  beforeEach(() => {
-    req = {
-      body: {}
-    };
-    res = {
-      status
-    };
-  });
-
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('addMovie', () => {
-    it('should return 400 if title is missing', async () => {
-      req.body = { title: '' };
+  describe('getMovies', () => {
+    it('should fetch all movies successfully', async () => {
+      const mockMovies = [
+        { _id: '1', title: 'Movie 1' },
+        { _id: '2', title: 'Movie 2' },
+      ];
+      (MovieModel.find as jest.Mock).mockResolvedValue(mockMovies);
 
-      await addMovie(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(statusCodes.badRequest);
-      expect(json).toHaveBeenCalledWith({ message: 'Missing title' });
+      const res = await request(app).get('/movies');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(mockMovies);
     });
 
-    it('should return 200 and add movie if title is provided', async () => {
-      req.body = { title: 'Test Movie', description: 'A test movie' };
-
-      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [] });
-
-      await addMovie(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(statusCodes.success);
-      expect(json).toHaveBeenCalledWith({ message: 'Movie added successfully' });
-      expect(pool.query).toHaveBeenCalledWith(
-        "INSERT INTO movies (title, description) VALUES ($1, $2) RETURNING *;",
-        ['Test Movie', 'A test movie']
+    it('should handle errors when fetching all movies', async () => {
+      (MovieModel.find as jest.Mock).mockRejectedValue(
+        new Error('Error fetching movies'),
       );
-    });
 
-    it('should handle database errors', async () => {
-      req.body = { title: 'Test Movie', description: 'A test movie' };
-
-      (pool.query as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
-
-      await addMovie(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(statusCodes.queryError);
-      expect(json).toHaveBeenCalledWith({ error: 'Exception occurred while adding movie' });
+      const res = await request(app).get('/movies');
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({ error: 'Error fetching movies' });
     });
   });
 
-  describe('deleteMovie', () => {
-    it('should return 400 if movieId is missing', async () => {
-      req.body = { movieId: '' };
+  describe('getTopRatedMovies', () => {
+    it('should fetch top-rated movies successfully', async () => {
+      const mockTopMovies = [{ _id: '1', title: 'Top Movie 1', rating: 5 }];
+      (MovieModel.find as jest.Mock).mockReturnValue({
+        sort: jest.fn().mockReturnValue({
+          limit: jest.fn().mockResolvedValue(mockTopMovies),
+        }),
+      });
 
-      await deleteMovie(req as Request, res as Response);
-
-      expect(res.status).toHaveBeenCalledWith(statusCodes.badRequest);
-      expect(json).toHaveBeenCalledWith({ message: 'Missing movieId' });
+      const res = await request(app).get('/movies/top-rated');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(mockTopMovies);
     });
 
-    it('should return 200 and delete movie if movieId is provided', async () => {
-      req.body = { movieId: 1 };
+    it('should handle errors when fetching top-rated movies', async () => {
+      (MovieModel.find as jest.Mock).mockReturnValue({
+        sort: jest.fn().mockReturnValue({
+          limit: jest
+            .fn()
+            .mockRejectedValue(new Error('Error fetching top-rated movies')),
+        }),
+      });
 
-      (pool.query as jest.Mock).mockResolvedValueOnce({ rows: [{ id: 1 }] });
+      const res = await request(app).get('/movies/top-rated');
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({ error: 'Error fetching top-rated movies' });
+    });
+  });
 
-      await deleteMovie(req as Request, res as Response);
+  describe('getSeenMovies', () => {
+    it('should fetch seen movies for a user successfully', async () => {
+      const mockUser = { _id: 'userId' };
+      const mockSeenMovies = [{ _id: '1', title: 'Seen Movie 1' }];
+      (MovieModel.find as jest.Mock).mockResolvedValue(mockSeenMovies);
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.success);
-      expect(json).toHaveBeenCalledWith({ message: 'Movie deleted successfully' });
-      expect(pool.query).toHaveBeenCalledWith(
-        "DELETE FROM movies WHERE id = $1 RETURNING *;",
-        [1]
+      const res = await request(app)
+        .get('/movies/seen')
+        .set('Cookie', `session=${JSON.stringify({ user: mockUser })}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(mockSeenMovies);
+    });
+
+    it('should return an empty array if user has no seen movies', async () => {
+      const mockUser = { _id: 'userId' };
+      (MovieModel.find as jest.Mock).mockResolvedValue([]);
+
+      const res = await request(app)
+        .get('/movies/seen')
+        .set('Cookie', `session=${JSON.stringify({ user: mockUser })}`);
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]); // Should return an empty array
+    });
+
+    it('should return 401 if user is not authenticated', async () => {
+      const res = await request(app).get('/movies/seen');
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: 'Unauthorized' });
+    });
+
+    it('should handle errors when fetching seen movies', async () => {
+      const mockUser = { _id: 'userId' };
+      (MovieModel.find as jest.Mock).mockRejectedValue(
+        new Error('Error fetching seen movies'),
       );
+
+      const res = await request(app)
+        .get('/movies/seen')
+        .set('Cookie', `session=${JSON.stringify({ user: mockUser })}`);
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({ error: 'Error fetching seen movies' });
+    });
+  });
+
+  describe('getMovieById', () => {
+    it('should fetch a movie by ID successfully', async () => {
+      const mockMovie = { _id: '1', title: 'Movie 1' };
+      (MovieModel.findById as jest.Mock).mockResolvedValue(mockMovie);
+
+      const res = await request(app).get('/movies/1');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(mockMovie);
     });
 
-    it('should handle database errors', async () => {
-      req.body = { movieId: 1 };
+    it('should return 404 if the movie is not found', async () => {
+      (MovieModel.findById as jest.Mock).mockResolvedValue(null);
 
-      (pool.query as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
+      const res = await request(app).get('/movies/1');
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ error: 'Movie not found' });
+    });
 
-      await deleteMovie(req as Request, res as Response);
+    it('should handle errors when fetching a movie by ID', async () => {
+      (MovieModel.findById as jest.Mock).mockRejectedValue(
+        new Error('Error fetching movie'),
+      );
 
-      expect(res.status).toHaveBeenCalledWith(statusCodes.queryError);
-      expect(json).toHaveBeenCalledWith({ error: 'Exception occurred while deleting movie' });
+      const res = await request(app).get('/movies/1');
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({ error: 'Error fetching movie' });
     });
   });
 });

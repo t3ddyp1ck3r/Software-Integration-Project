@@ -3,6 +3,11 @@ import MessageModel from '../models/messageModel';
 
 export const addMessage = async (req: Request, res: Response) => {
   const { content, recipientId } = req.body;
+
+  if (!content || !recipientId) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
   try {
     const newMessage = new MessageModel({ content, recipientId });
     await newMessage.save();
@@ -25,7 +30,11 @@ export const editMessage = async (req: Request, res: Response) => {
   const { messageId } = req.params;
   const { content } = req.body;
   try {
-    const updatedMessage = await MessageModel.findByIdAndUpdate(messageId, { content }, { new: true });
+    const updatedMessage = await MessageModel.findByIdAndUpdate(
+      messageId,
+      { content },
+      { new: true },
+    );
     if (!updatedMessage) {
       res.status(404).json({ error: 'Message not found' });
     } else {

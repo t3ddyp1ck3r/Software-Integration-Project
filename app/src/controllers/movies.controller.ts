@@ -20,6 +20,9 @@ export const getTopRatedMovies = async (req: Request, res: Response) => {
 };
 
 export const getSeenMovies = async (req: Request, res: Response) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   const userId = req.session.user._id;
   try {
     const seenMovies = await MovieModel.find({ seenBy: userId });
