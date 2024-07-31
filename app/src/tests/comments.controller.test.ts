@@ -1,9 +1,12 @@
 import request from 'supertest';
+import { Request, Response, NextFunction } from 'express';
 import { app } from '../index';
 import CommentModel from '../models/commentModel';
 
-// Mock the CommentModel
 jest.mock('../models/commentModel');
+jest.mock('../middleware/authentication', () => ({
+  authenticate: (_req: Request, _res: Response, next: NextFunction) => next(),
+}));
 
 describe('Comments Controller', () => {
   afterEach(() => {
@@ -37,12 +40,12 @@ describe('Comments Controller', () => {
       const res = await request(app).get('/comments/1');
 
       expect(res.status).toBe(200);
-      expect(res.body).toEqual([]); // Should return an empty array if no comments found
+      expect(res.body).toEqual([]);
     });
 
     it('should handle errors when fetching comments', async () => {
       (CommentModel.find as jest.Mock).mockRejectedValue(
-        new Error('Error fetching comments'),
+        new Error('Error fetching comments')
       );
 
       const res = await request(app).get('/comments/1');
@@ -90,7 +93,7 @@ describe('Comments Controller', () => {
 
     it('should handle errors when adding a comment', async () => {
       (CommentModel.prototype.save as jest.Mock).mockRejectedValue(
-        new Error('Error adding comment'),
+        new Error('Error adding comment')
       );
 
       const res = await request(app)

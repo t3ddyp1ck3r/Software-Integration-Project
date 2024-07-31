@@ -1,9 +1,12 @@
 import request from 'supertest';
+import { Request, Response, NextFunction } from 'express';
 import { app } from '../index';
 import MessageModel from '../models/messageModel';
 
-// Mock the MessageModel
 jest.mock('../models/messageModel');
+jest.mock('../middleware/authentication', () => ({
+  authenticate: (_req: Request, _res: Response, next: NextFunction) => next(),
+}));
 
 describe('Messages Controller', () => {
   afterEach(() => {
@@ -47,7 +50,7 @@ describe('Messages Controller', () => {
 
     it('should handle errors when adding a message', async () => {
       (MessageModel.prototype.save as jest.Mock).mockRejectedValue(
-        new Error('Error adding message'),
+        new Error('Error adding message')
       );
 
       const res = await request(app)
@@ -79,12 +82,12 @@ describe('Messages Controller', () => {
       const res = await request(app).get('/messages');
 
       expect(res.status).toBe(200);
-      expect(res.body).toEqual([]); // Should return an empty array if no messages found
+      expect(res.body).toEqual([]);
     });
 
     it('should handle errors when fetching messages', async () => {
       (MessageModel.find as jest.Mock).mockRejectedValue(
-        new Error('Error fetching messages'),
+        new Error('Error fetching messages')
       );
 
       const res = await request(app).get('/messages');
@@ -101,9 +104,7 @@ describe('Messages Controller', () => {
         content: 'Updated message!',
         recipientId: 'userId1',
       };
-      (MessageModel.findByIdAndUpdate as jest.Mock).mockResolvedValue(
-        mockMessage,
-      );
+      (MessageModel.findByIdAndUpdate as jest.Mock).mockResolvedValue(mockMessage);
 
       const res = await request(app)
         .put('/messages/messageId')
@@ -126,7 +127,7 @@ describe('Messages Controller', () => {
 
     it('should handle errors when updating a message', async () => {
       (MessageModel.findByIdAndUpdate as jest.Mock).mockRejectedValue(
-        new Error('Error updating message'),
+        new Error('Error updating message')
       );
 
       const res = await request(app)
@@ -145,9 +146,7 @@ describe('Messages Controller', () => {
         content: 'Hello!',
         recipientId: 'userId1',
       };
-      (MessageModel.findByIdAndDelete as jest.Mock).mockResolvedValue(
-        mockMessage,
-      );
+      (MessageModel.findByIdAndDelete as jest.Mock).mockResolvedValue(mockMessage);
 
       const res = await request(app).delete('/messages/messageId');
 
@@ -166,7 +165,7 @@ describe('Messages Controller', () => {
 
     it('should handle errors when deleting a message', async () => {
       (MessageModel.findByIdAndDelete as jest.Mock).mockRejectedValue(
-        new Error('Error deleting message'),
+        new Error('Error deleting message')
       );
 
       const res = await request(app).delete('/messages/messageId');
@@ -202,7 +201,7 @@ describe('Messages Controller', () => {
 
     it('should handle errors when fetching a message by ID', async () => {
       (MessageModel.findById as jest.Mock).mockRejectedValue(
-        new Error('Error fetching message'),
+        new Error('Error fetching message')
       );
 
       const res = await request(app).get('/messages/messageId');

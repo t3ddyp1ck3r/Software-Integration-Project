@@ -4,7 +4,6 @@ import jwt from 'jsonwebtoken';
 import { app } from '../index';
 import userModel from '../models/userModel';
 
-// Mock the userModel
 jest.mock('../models/userModel');
 
 describe('Auth Controller', () => {
@@ -44,7 +43,7 @@ describe('Auth Controller', () => {
 
     it('should handle errors when saving user', async () => {
       (userModel.prototype.save as jest.Mock).mockRejectedValue(
-        new Error('Error while saving user to DB'),
+        new Error('Error while saving user to DB')
       );
 
       const res = await request(app).post('/auth/signup').send({
@@ -67,26 +66,26 @@ describe('Auth Controller', () => {
       };
       (userModel.findOne as jest.Mock).mockResolvedValue(mockUser);
 
-      const res = await request(app)
-        .post('/auth/signin')
-        .send({ email: 'user1@example.com', password: 'password123' });
+      const res = await request(app).post('/auth/signin').send({
+        email: 'user1@example.com',
+        password: 'password123',
+      });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('token');
-
-      // Optionally verify the token structure
       const decoded = jwt.verify(
         res.body.token,
-        process.env.JWT_SECRET_KEY as string,
+        process.env.JWT_SECRET_KEY as string
       );
       expect(decoded).toHaveProperty('user.id', mockUser._id);
       expect(decoded).toHaveProperty('user.email', mockUser.email);
     });
 
     it('should return 400 if missing information', async () => {
-      const res = await request(app)
-        .post('/auth/signin')
-        .send({ email: '', password: 'password123' });
+      const res = await request(app).post('/auth/signin').send({
+        email: '',
+        password: 'password123',
+      });
 
       expect(res.status).toBe(400);
       expect(res.body).toEqual({ error: 'missing information' });
@@ -95,9 +94,10 @@ describe('Auth Controller', () => {
     it('should return 400 if user not found', async () => {
       (userModel.findOne as jest.Mock).mockResolvedValue(null);
 
-      const res = await request(app)
-        .post('/auth/signin')
-        .send({ email: 'user1@example.com', password: 'password123' });
+      const res = await request(app).post('/auth/signin').send({
+        email: 'user1@example.com',
+        password: 'password123',
+      });
 
       expect(res.status).toBe(400);
       expect(res.body).toEqual({ message: 'User not found' });
@@ -111,9 +111,10 @@ describe('Auth Controller', () => {
       };
       (userModel.findOne as jest.Mock).mockResolvedValue(mockUser);
 
-      const res = await request(app)
-        .post('/auth/signin')
-        .send({ email: 'user1@example.com', password: 'password123' });
+      const res = await request(app).post('/auth/signin').send({
+        email: 'user1@example.com',
+        password: 'password123',
+      });
 
       expect(res.status).toBe(400);
       expect(res.body).toEqual({ message: "Email or password don't match" });
@@ -121,12 +122,13 @@ describe('Auth Controller', () => {
 
     it('should handle errors when signing in', async () => {
       (userModel.findOne as jest.Mock).mockRejectedValue(
-        new Error('Error while getting user from DB'),
+        new Error('Error while getting user from DB')
       );
 
-      const res = await request(app)
-        .post('/auth/signin')
-        .send({ email: 'user1@example.com', password: 'password123' });
+      const res = await request(app).post('/auth/signin').send({
+        email: 'user1@example.com',
+        password: 'password123',
+      });
 
       expect(res.status).toBe(500);
       expect(res.body).toEqual({ error: 'Failed to get user' });
@@ -145,10 +147,7 @@ describe('Auth Controller', () => {
 
       const res = await request(app)
         .get('/auth/user')
-        .set(
-          'Cookie',
-          `session=${JSON.stringify({ user: { _id: 'userId' } })}`,
-        );
+        .set('Cookie', `session=${JSON.stringify({ user: { _id: 'userId' } })}`);
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual(mockUser);
@@ -156,21 +155,19 @@ describe('Auth Controller', () => {
 
     it('should return 401 if user is not authenticated', async () => {
       const res = await request(app).get('/auth/user');
+
       expect(res.status).toBe(401);
       expect(res.body).toEqual({ error: 'You are not authenticated' });
     });
 
     it('should handle errors when getting user', async () => {
       (userModel.findById as jest.Mock).mockRejectedValue(
-        new Error('Error while getting user from DB'),
+        new Error('Error while getting user from DB')
       );
 
       const res = await request(app)
         .get('/auth/user')
-        .set(
-          'Cookie',
-          `session=${JSON.stringify({ user: { _id: 'userId' } })}`,
-        );
+        .set('Cookie', `session=${JSON.stringify({ user: { _id: 'userId' } })}`);
 
       expect(res.status).toBe(500);
       expect(res.body).toEqual({ error: 'Failed to get user' });
@@ -181,10 +178,7 @@ describe('Auth Controller', () => {
     it('should logout user successfully', async () => {
       const res = await request(app)
         .post('/auth/logout')
-        .set(
-          'Cookie',
-          `session=${JSON.stringify({ user: { _id: 'userId' } })}`,
-        );
+        .set('Cookie', `session=${JSON.stringify({ user: { _id: 'userId' } })}`);
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ message: 'Disconnected' });
@@ -192,6 +186,7 @@ describe('Auth Controller', () => {
 
     it('should still respond with success if no user in session', async () => {
       const res = await request(app).post('/auth/logout');
+
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ message: 'Disconnected' });
     });
