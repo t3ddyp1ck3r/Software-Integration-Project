@@ -1,0 +1,35 @@
+name: Deployment Workflow
+
+on:
+  push:
+    branches:
+      - pprod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build the project
+      run: npm run build
+
+    - name: Deploy to Pre-Production
+      env:
+        NODE_ENV: preproduction
+        PORT: 8080
+      run: |
+        echo "Deploying to pre-production..."
+        # Example deployment script
+        scp -r ./build user@server:/path/to/deploy
+        ssh user@server "cd /path/to/deploy && npm install && npm start"
