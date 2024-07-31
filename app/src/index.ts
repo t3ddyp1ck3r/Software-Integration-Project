@@ -10,7 +10,7 @@ import morgan from 'morgan';
 import { logger, stream } from './middleware/winston';
 import { notFound } from './middleware/notFound';
 import { healthCheck } from './middleware/healthCheck';
-import { authenticate } from './middleware/authentication';
+import { verifyToken } from './middleware/authentication';
 import { validateRequest } from './middleware/validator';
 
 // ROUTES
@@ -55,11 +55,11 @@ const registerCoreMiddleWare = () => {
     // Route registration
     app.use('/auth', authRoutes);
     app.use('/users', usersRoutes);
-    app.use('/messages', authenticate, messageRoutes);
-    app.use('/profile', authenticate, profileRoutes);
-    app.use('/movies', authenticate, moviesRoutes);
-    app.use('/ratings', authenticate, ratingRoutes);
-    app.use('/comments', authenticate, commentsRoutes);
+    app.use('/messages', verifyToken, messageRoutes);
+    app.use('/profile', verifyToken, profileRoutes);
+    app.use('/movies', verifyToken, moviesRoutes);
+    app.use('/ratings', verifyToken, ratingRoutes);
+    app.use('/comments', verifyToken, commentsRoutes);
 
     // 404 handling for not found
     app.use(notFound);
