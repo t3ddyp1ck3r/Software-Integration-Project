@@ -58,7 +58,7 @@ describe('Users Controller', () => {
       );
 
       const userData = {
-        username: 'testuser',
+        username: 'test',
         email: 'test@example.com',
         password: 'password',
       };
