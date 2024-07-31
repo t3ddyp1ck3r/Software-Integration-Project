@@ -59,7 +59,7 @@ describe('Users Controller', () => {
 
       const userData = {
         username: 'test',
-        email: 'test@example.com',
+        email: 'test@hotmail.com',
         password: 'password',
       };
 
@@ -75,7 +75,7 @@ describe('Users Controller', () => {
       const loginData = { email: 'test@example.com', password: 'password' };
       const user = {
         _id: 'userId',
-        email: 'test@example.com',
+        email: 'test@hotmail.com',
         password: 'hashedPassword',
       };
 
@@ -92,7 +92,7 @@ describe('Users Controller', () => {
     it('should return 400 if required fields are missing', async () => {
       const res = await request(app)
         .post('/login')
-        .send({ email: 'test@example.com' }); // Missing password
+        .send({ email: 'test@hotmail.com' }); // Missing password
 
       expect(res.status).toBe(400);
       expect(res.body).toEqual({ error: 'Missing required fields' });
@@ -113,12 +113,12 @@ describe('Users Controller', () => {
 
     it('should return 401 if password is invalid', async () => {
       const loginData = {
-        email: 'test@example.com',
+        email: 'test@hotmail.com',
         password: 'wrongPassword',
       };
       const user = {
         _id: 'userId',
-        email: 'test@example.com',
+        email: 'test@hotmail.com',
         password: 'hashedPassword',
       };
 
@@ -132,7 +132,7 @@ describe('Users Controller', () => {
     });
 
     it('should handle errors while logging in user', async () => {
-      const loginData = { email: 'test@example.com', password: 'password' };
+      const loginData = { email: 'test@hotmail.com', password: 'password' };
       (UserModel.findOne as jest.Mock).mockResolvedValue({
         _id: 'userId',
         password: 'hashedPassword',
