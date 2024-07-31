@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { authenticate } from '../middleware/authentication';
+import { verifyToken } from '../middleware/authentication';
 
 describe('Authentication Middleware', () => {
   it('should call next() if user is authenticated', () => {
@@ -11,7 +11,7 @@ describe('Authentication Middleware', () => {
     const res = {} as Response;
     const next = jest.fn() as NextFunction;
 
-    authenticate(req, res, next);
+    verifyToken(req, res, next);
 
     expect(next).toHaveBeenCalled();
   });
@@ -26,7 +26,7 @@ describe('Authentication Middleware', () => {
     } as unknown as Response;
     const next = jest.fn() as NextFunction;
 
-    authenticate(req, res, next);
+    verifyToken(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ error: 'Unauthorized' });
